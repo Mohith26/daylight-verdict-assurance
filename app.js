@@ -10,7 +10,7 @@ const dayLabel = (d) => new Date(DAY0 + d * 86400000).toLocaleDateString('en-US'
 const timeLabel = (m) => new Date(DAY0 + m * 60000).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }) + ' UTC';
 const STORE = 'daylight-verdict-assurance/v1';
 const FIRST = 9, LAST = 16; // replay days (Jun 10 - Jun 17, 2024)
-const DEF = { risk: 'leak', alpha: 0.005, conf: 95, window: 7, org: '', filter: 'all', inc: '' };
+const DEF = { risk: 'leak', alpha: 0.005, conf: 95, window: 7, org: '', filter: 'all', inc: '', audit: 0.1 };
 const ALPHAS = { leak: [0.001, 0.002, 0.005, 0.01], miss: [0.005, 0.01, 0.02, 0.05] };
 const RISK_LABEL = { leak: 'Threats closed per incident', miss: 'Share of threats closed' };
 
@@ -24,7 +24,8 @@ function readHash() {
   const [v, qs] = location.hash.replace(/^#/, '').split('?');
   const p = new URLSearchParams(qs || '');
   const s = { ...DEF, view: ['overview', 'customer', 'policies', 'method'].includes(v) ? v : 'overview' };
-  for (const k of Object.keys(DEF)) if (p.has(k)) s[k] = ['alpha', 'conf', 'window'].includes(k) ? Number(p.get(k)) : p.get(k);
+  for (const k of Object.keys(DEF)) if (p.has(k)) s[k] = ['alpha', 'conf', 'window', 'audit'].includes(k) ? Number(p.get(k)) : p.get(k);
+  if (![0.05, 0.1, 0.2].includes(s.audit)) s.audit = 0.1;
   if (!['leak', 'miss'].includes(s.risk)) s.risk = 'leak';
   if (!ALPHAS[s.risk].includes(s.alpha)) s.alpha = ALPHAS[s.risk][2];
   if (![90, 95, 99].includes(s.conf)) s.conf = 95;
@@ -216,6 +217,7 @@ function renderCustomer() {
     <div class="card"><div class="card-h"><h2>AI threat confidence, last ${s.window} days</h2><span class="legend"><span><i style="background:#ff3263"></i>Threat</span><span><i style="background:#c9c7bb"></i>Benign / false positive</span></span></div><div class="card-b"><svg class="chart" id="hist" role="img" aria-label="Score histogram with thresholds"></svg></div></div>
     <div class="card"><div class="card-h"><h2>Certification walk</h2><span class="meta">exact binomial test at each threshold, stop at first failure</span></div><div class="card-b"><svg class="chart" id="walk" role="img" aria-label="Risk and p-value as the threshold rises"></svg></div></div>
   </div>
+  ${s.risk === 'leak' ? monitorCard(org, incs) : ''}
   <div class="two">
     <div class="card"><div class="card-h"><h2>Incidents</h2><div class="seg" role="group" aria-label="Filter incidents">${[['all', 'All'], ['auto', 'Closed by agent'], ['esc', 'Escalated'], ['missed', 'Missed threats'], ['saved', 'Caught vs uncorrected']].map(([k, l]) => `<button data-f="${k}" aria-pressed="${s.filter === k}">${l} <span style="color:var(--text-tertiary)">${counts[k]}</span></button>`).join('')}</div></div>
       ${shown.length ? `<table><thead><tr><th>Incident</th><th>Created (UTC)</th><th>Category</th><th class="num">AI confidence</th><th>Routing</th><th>SOC grade</th></tr></thead><tbody>${shown.map((x) => `<tr class="click${selInc && x.i === selInc.i ? ' sel' : ''}" data-inc="${x.i}" tabindex="0"><td style="font-weight:700">#${x.iid}</td><td style="white-space:nowrap">${timeLabel(x.minute).replace(' UTC', '')}</td><td style="white-space:nowrap">${esc(x.category.replace(/([a-z])([A-Z])/g, '$1 $2'))}</td><td class="num">${x.score.toFixed(4)}</td><td>${x.auto ? `<span class="route auto"><span class="dot">${I.check}</span>Closed by agent</span>` : `<span class="route esc"><span class="dot">${I.up}</span>Escalated</span>`}</td><td>${x.grade === 'T' ? '<span class="chip breach">True positive</span>' : x.grade === 'B' ? '<span class="chip gray">Benign positive</span>' : '<span class="chip gray">False positive</span>'}</td></tr>`).join('')}</tbody></table>${list.length > 60 ? `<div style="padding:10px 18px;color:var(--text-tertiary);font-size:12px">Showing the 60 most recent of ${list.length}. Export for all.</div>` : ''}`
@@ -228,11 +230,48 @@ function renderCustomer() {
   </div>`;
   bindControls();
   drawHist(cal, cert.lambda, plg.lambda);
+  if (s.risk === 'leak') { drawMonitor(org, incs); for (const b of document.querySelectorAll('[data-audit]')) b.onclick = () => set({ audit: +b.dataset.audit }); }
   drawWalk(cert, s);
   for (const b of document.querySelectorAll('[data-f]')) b.onclick = () => set({ filter: b.dataset.f, inc: '' });
   for (const tr of document.querySelectorAll('tr[data-inc]')) { const go = () => set({ inc: tr.dataset.inc }); tr.onclick = go; tr.onkeydown = (e) => { if (e.key === 'Enter') go(); }; }
   $('apply').onclick = () => { if (applyPolicy(org, cert.lambda)) render(); };
   $('expInc').onclick = () => download(`org-${org}-incidents.csv`, C.toCSV(incs.map((x) => ({ incident: x.iid, created_utc: new Date(DAY0 + x.minute * 60000).toISOString(), category: x.category, ai_confidence: x.score, threshold: x.lam, routing: x.auto ? 'closed_by_agent' : 'escalated', soc_grade: { T: 'TruePositive', B: 'BenignPositive', F: 'FalsePositive' }[x.grade] }))));
+}
+
+function monitorStreams(org, incs) {
+  const s = state, r = s.audit;
+  const sorted = [...incs].sort((a, b) => a.minute - b.minute);
+  const mk = (key) => sorted.map((x) => ({ tp: x.tp, closed: x[key], audited: C.audited(x.iid, r) }));
+  const o = { alpha: s.alpha, rate: r, delta: 1 - s.conf / 100 };
+  return { cert: C.monitor(mk('auto'), o), plug: C.monitor(mk('autoP'), o), n: sorted.length };
+}
+function monitorCard(org, incs) {
+  const s = state, M = monitorStreams(org, incs);
+  const det = C.detectableLeak(M.n, { alpha: s.alpha, rate: s.audit, delta: 1 - s.conf / 100 });
+  const fmtA = (m) => m.alarm >= 0 ? `<span class="chip breach">${I.up}Alarm at incident ${m.alarm + 1}</span>` : '<span class="chip ok">' + I.check + 'No alarm</span>';
+  return `<div class="card" style="margin-bottom:16px"><div class="card-h"><h2>Live audit monitor</h2><div style="display:flex;gap:10px;align-items:center"><span class="meta">Expert-audit a random share of agent-closed incidents</span><div class="seg">${[0.05, 0.1, 0.2].map((r) => `<button data-audit="${r}" aria-pressed="${s.audit === r}">${r * 100}%</button>`).join('')}</div></div></div>
+    <div class="card-b" style="display:grid;grid-template-columns:1.6fr 1fr;gap:20px;align-items:center">
+      <svg class="chart" id="mon" role="img" aria-label="Anytime-valid e-value over the replay"></svg>
+      <div style="font-size:13px;color:var(--text-secondary)">
+        <p style="margin:0 0 10px">In production nobody labels what the agent closes. Auditing ${s.audit * 100}% of those cases (${M.cert.audits} audits here) feeds an anytime-valid test: if the e-value ever crosses ${Math.round(1 / (1 - s.conf / 100))}, the bound is very likely broken. The alarm can then revoke the policy, and the false-alarm risk stays under ${100 - s.conf}% however long it runs.</p>
+        <p style="margin:0 0 6px">Certified policy: ${fmtA(M.cert)}</p><p style="margin:0 0 10px">Uncorrected policy: ${fmtA(M.plug)}</p>
+        <p style="margin:0;color:var(--text-tertiary)">At this audit rate and this customer's volume (${fmt(M.n)} incidents over 8 days), only a rate of roughly ${(1000 * det).toFixed(1)} per 1,000 or worse would trip the alarm (normal approximation). Small breaches need more audits or more time.</p>
+      </div></div></div>`;
+}
+function drawMonitor(org, incs) {
+  const svg = $('mon'); if (!svg) return;
+  const M = monitorStreams(org, incs), s = state;
+  const W = svg.clientWidth || 600, H = 170, ml = 40, mr = 10, mt = 10, mb = 22;
+  const thr = 1 / (1 - s.conf / 100);
+  const all = [...M.cert.path, ...M.plug.path].filter((v) => v > 0);
+  const lmax = Math.log10(Math.max(thr * 3, ...all)), lmin = Math.min(-2, Math.log10(Math.max(1e-4, Math.min(...all))));
+  const x = (i) => ml + i / Math.max(1, M.n - 1) * (W - ml - mr), y = (v) => mt + (1 - (Math.log10(Math.max(v, 10 ** lmin)) - lmin) / (lmax - lmin)) * (H - mt - mb);
+  const path = (p) => p.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join('');
+  let g = '';
+  for (const v of [0.01, 1, thr]) g += `<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" stroke="${v === thr ? '#0d0c0c' : '#efeee3'}" ${v === thr ? 'stroke-dasharray="4 3"' : ''}/><text x="${ml - 6}" y="${y(v) + 4}" text-anchor="end">${v === thr ? 'alarm' : v}</text>`;
+  g += `<path d="${path(M.plug.path)}" fill="none" stroke="#ff3263" stroke-width="1.5"/><path d="${path(M.cert.path)}" fill="none" stroke="#2a9d8f" stroke-width="2"/>`;
+  g += `<text x="${ml}" y="${H - 6}">Jun 10</text><text x="${W - mr}" y="${H - 6}" text-anchor="end">Jun 17</text><text x="${W - mr}" y="${mt + 10}" text-anchor="end" style="fill:#1d7f74;font-weight:700">certified</text><text x="${W - mr - 62}" y="${mt + 10}" text-anchor="end" style="fill:#c21d47;font-weight:700">uncorrected</text>`;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.style.height = H + 'px'; svg.innerHTML = g;
 }
 
 function incidentCard(x) {

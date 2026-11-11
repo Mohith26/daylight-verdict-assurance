@@ -148,6 +148,32 @@ test('headline: committed results.json is reproduced exactly', () => {
   assert.equal(p.sigBreaches, 3);
 });
 
+test('audit monitor: false alarm rate <= delta when the bound holds (simulation)', () => {
+  const rnd = C.mulberry32(11);
+  let alarms = 0; const trials = 300, alpha = 0.005, rate = 0.05;
+  for (let t = 0; t < trials; t++) {
+    const stream = Array.from({ length: 3000 }, (_, i) => { const closed = rnd() < 0.5; const tp = closed && rnd() < 2 * alpha * 0.9; return { closed, tp, audited: rnd() < rate }; });
+    if (C.monitor(stream, { alpha, rate, delta: 0.05 }).alarm >= 0) alarms++;
+  }
+  assert.ok(alarms / trials <= 0.05 + 0.02, 'false alarms ' + alarms / trials);
+});
+
+test('audit monitor: alarms when the per-incident rate is 4x the bound (20% audits)', () => {
+  const rnd = C.mulberry32(12);
+  let caught = 0;
+  for (let t = 0; t < 100; t++) {
+    const stream = Array.from({ length: 8000 }, () => { const closed = rnd() < 0.5; const tp = closed && rnd() < 8 * 0.005; return { closed, tp, audited: rnd() < 0.2 }; });
+    if (C.monitor(stream, { alpha: 0.005, rate: 0.2, delta: 0.05 }).alarm >= 0) caught++;
+  }
+  assert.ok(caught >= 80, 'caught ' + caught);
+});
+
+test('detectableLeak shrinks with more audits and more volume, and exceeds the bound', () => {
+  const o = { alpha: 0.005, delta: 0.05 };
+  const a = C.detectableLeak(2000, { ...o, rate: 0.05 }), b = C.detectableLeak(2000, { ...o, rate: 0.2 }), c = C.detectableLeak(20000, { ...o, rate: 0.2 });
+  assert.ok(a > b && b > c && c > 0.005);
+});
+
 test('toCSV escapes', () => {
   assert.equal(C.toCSV([{ a: 'x,y', b: '"q"' }]), 'a,b\n"x,y","""q"""');
 });

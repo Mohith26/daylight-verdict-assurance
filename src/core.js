@@ -192,6 +192,50 @@ export function summarize(rows, alpha) {
     breaches: rows.filter((r) => r.risk > alpha + 1e-12).length, sigBreaches: rows.filter((r) => r.sigBreach).length, customers: rows.length, certified: rows.filter((r) => r.lambda > 0).length };
 }
 
+// ---------- live monitoring: audit sampling + anytime-valid alarm ----------
+
+/** Deterministic audit draw for an incident (hash of id), so replays are reproducible. */
+export function audited(iid, rate, salt = 0) {
+  let h = (iid ^ (salt * 0x9e3779b1)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0; h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0; h = (h ^ (h >>> 16)) >>> 0;
+  return h / 4294967296 < rate;
+}
+
+/**
+ * Anytime-valid breach alarm for the per-incident bound, using only what production would know:
+ * escalated incidents get expert labels anyway; auto-closed ones are labelled only when randomly
+ * audited (probability `rate`). X_i = 1{closed by agent, audited, real threat} / rate is an unbiased
+ * estimate of the per-incident leak. Under H0: E[X] <= alpha, each K_lambda(t) = prod(1 + lambda (X_i - alpha))
+ * is a nonnegative supermartingale; their average is too, so by Ville's inequality
+ * P(sup_t K(t) >= 1/delta) <= delta. Returns the e-value path and the first alarm index.
+ */
+export function monitor(stream, { alpha, rate, delta = 0.05, lambdas = [0.25, 0.5, 1, 2, 4] } = {}) {
+  const ls = lambdas.map((c) => Math.min(c * rate, 0.5 / alpha));
+  const logK = ls.map(() => 0);
+  const path = [];
+  let alarm = -1;
+  for (let i = 0; i < stream.length; i++) {
+    const x = stream[i];
+    const X = x.closed && x.audited && x.tp ? 1 / rate : 0;
+    for (let j = 0; j < ls.length; j++) logK[j] += Math.log1p(ls[j] * (X - alpha));
+    const m = Math.max(...logK);
+    const K = Math.exp(m) * logK.reduce((a, v) => a + Math.exp(v - m), 0) / ls.length;
+    path.push(K);
+    if (alarm < 0 && K >= 1 / delta) alarm = i;
+  }
+  return { path, alarm, audits: stream.filter((x) => x.closed && x.audited).length };
+}
+
+/**
+ * Rough design aid (normal approximation to the e-process growth rate, not a guarantee):
+ * smallest per-incident leak mu > alpha that the monitor would flag after n incidents with audit
+ * rate r, solving n (mu - alpha)^2 / (2 mu / r) = ln(1/delta).
+ */
+export function detectableLeak(n, { alpha, rate, delta = 0.05 }) {
+  const c = 2 * Math.log(1 / delta) / (n * rate); // (mu - alpha)^2 = c mu
+  return alpha + c / 2 + Math.sqrt(c * c / 4 + c * alpha);
+}
+
 // ---------- utilities ----------
 
 export function auc(xs) {

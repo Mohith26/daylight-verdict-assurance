@@ -27,6 +27,7 @@ The certified rule takes the same work off experts as the uncorrected one, with 
 - **Certification (Learn then Test; Angelopoulos, Bates, Candès, Jordan & Lei, 2021).** On a fixed grid of 801 thresholds chosen before seeing data, walk upward from the strictest. At each λ, test H₀: risk(λ) > α with the exact p-value P(Bin(n, α) ≤ k), where k is the number of threats below λ. Stop at the first non-rejection. Fixed-sequence testing controls the family-wise error, so with probability ≥ 1−δ the certified λ keeps the true risk ≤ α when cases are exchangeable.
 - **Per customer, daily.** Each customer is certified on its own trailing window (Mondrian calibration). A customer without enough evidence gets no auto-close until it has some.
 - **Audit.** Applying a policy records version, threshold, bound, confidence and window (localStorage), with export to JSON.
+- **Live audit monitor.** In production nobody labels what the agent closes. Expert-audit a random 5-20% of agent-closed incidents. X = 1{closed, audited, threat}/rate is an unbiased estimate of the per-incident rate. A mixture of betting supermartingales ∏(1 + λ(X − α)) gives an anytime-valid alarm (Ville's inequality): false-alarm risk stays ≤ δ however long it runs. The page also shows roughly how large a breach this customer's volume and audit rate could catch in a week. Honest result: on this one-week replay no monitor alarms, not even for the uncorrected rule's 2.5× breach at Org 38. A week of audits is not enough evidence for breaches that size, which is exactly why the up-front certification matters.
 
 ## The app
 
@@ -38,13 +39,15 @@ The certified rule takes the same work off experts as the uncorrected one, with 
 
 ## Tests
 
-`node --test tests/core.test.mjs` runs 14 tests. They check:
+`node --test tests/core.test.mjs` runs 17 tests. They check:
 - the exact binomial CDF against direct summation, and the Clopper-Pearson inversion
 - sweep counts, and that certification stops at the first failure
 - that certification is never looser than the plug-in rule, and is monotone in α and δ
 - a randomized simulation showing Learn-then-Test keeps the true risk under α with probability ≥ 1−δ
 - a simulation showing the plug-in rule overshoots more than 3× as often
 - that the rolling replay equals the sum of the daily tables
+- the audit monitor's false-alarm rate (≤ δ, simulated) and its power against a 4× breach
+- that the detectable-breach estimate shrinks with more audits and more volume
 - the model's AUC
 - that `results.json` is reproduced exactly with the headline numbers
 
