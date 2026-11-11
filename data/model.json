@@ -1,0 +1,35 @@
+{
+ "weights": [
+  1.0827016510834693,
+  0.006145641688105994,
+  1.3666119670264107,
+  0.8339684198505221,
+  -0.2710488907932988,
+  0.30496673735097946,
+  0.2802177174048945,
+  0.06494070723175419,
+  0.16180681610809292,
+  0.4578102161704338,
+  0.27457911809267865,
+  -0.2002452514877396,
+  0.3513966030651634
+ ],
+ "features": [
+  "bias",
+  "detector",
+  "org_x_detector",
+  "alert_title",
+  "category",
+  "org",
+  "log_alerts",
+  "log_evidence",
+  "incriminated",
+  "suspicious",
+  "verdict_malicious",
+  "verdict_suspicious",
+  "verdict_nothreats"
+ ],
+ "train_incidents": 707108,
+ "train_auc_halfB": 0.9847894760216256,
+ "test_auc_selected_orgs": 0.9897666787430852
+}

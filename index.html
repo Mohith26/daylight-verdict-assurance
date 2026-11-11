@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verdict assurance · Daylight (concept)</title>
+<meta name="description" content="Unofficial concept: certified expert-routing thresholds for AI triage verdicts, replayed on Microsoft's public GUIDE incident dataset.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" aria-label="Navigation">
+    <div class="brand"><img src="logo.png" alt="daylight"></div>
+    <div class="ws" title="Workspace"><div>MDR fleet<small>14 customers · GUIDE replay</small></div><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></div>
+    <div class="navlabel">Operate</div>
+    <nav class="nav">
+      <a href="#" data-stub="Cases"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M2 6h12"/></svg>Cases</a>
+      <a href="#" data-stub="Investigations"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>Investigations</a>
+      <a href="#" data-stub="Response"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><path d="M8 2 13 4v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>Response</a>
+      <a href="#overview" id="navAssure" aria-current="page"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><path d="M8 2 13 4v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/><path d="m5.8 8 1.6 1.6L10.4 6.6"/></svg>Verdict assurance<span class="pill-new">New</span></a>
+    </nav>
+    <div class="navlabel">Coverage</div>
+    <nav class="nav">
+      <a href="#" data-stub="Detection visibility"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Detection visibility</a>
+      <a href="#" data-stub="Threat hunting"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2"/></svg>Threat hunting</a>
+      <a href="#" data-stub="Integrations"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><path d="M6 3v3M10 3v3M4.5 6h7v2a3.5 3.5 0 0 1-7 0zM8 11.5V14"/></svg>Integrations</a>
+    </nav>
+    <div class="navlabel">Assurance</div>
+    <nav class="nav">
+      <a href="#policies" id="navPolicies"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><path d="M4 2h6l3 3v9H4z"/><path d="M10 2v3h3M6 8h5M6 11h5"/></svg>Routing policies<span id="polCount" class="pill-new" style="background:#0d0c0c;display:none"></span></a>
+      <a href="#method" id="navMethod"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 7v4M8 5v.5"/></svg>Method</a>
+    </nav>
+    <div class="foot">Unofficial concept by Mohith Gajjela. Not affiliated with Daylight. Public data: Microsoft GUIDE.</div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="crumbs" id="crumbs"><b>Verdict assurance</b></div>
+      <div class="top-actions"><button class="btn secondary" id="helpBtn" aria-label="Keyboard shortcuts"><kbd>?</kbd> Shortcuts</button><div class="avatar" aria-hidden="true">MG</div></div>
+    </header>
+    <main class="content" id="view" aria-live="polite"></main>
+    <footer class="footer"><span>Unofficial concept demo by Mohith Gajjela. Not affiliated with Daylight. Public data from Microsoft GUIDE (Freitas et al., 2024), 14 anonymised organisations.</span><span id="dataNote"></span></footer>
+  </div>
+</div>
+<div class="tooltip" id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="modal-bg" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="modal card">
+    <h3 id="helpTitle">Keyboard shortcuts</h3>
+    <dl>
+      <dt><kbd>g</kbd> <kbd>o</kbd></dt><dd>Fleet overview</dd>
+      <dt><kbd>g</kbd> <kbd>p</kbd></dt><dd>Routing policies</dd>
+      <dt><kbd>j</kbd> / <kbd>k</kbd></dt><dd>Next / previous customer or incident</dd>
+      <dt><kbd>Enter</kbd></dt><dd>Open the selected row</dd>
+      <dt><kbd>a</kbd></dt><dd>Apply the certified policy (customer page)</dd>
+      <dt><kbd>e</kbd></dt><dd>Export the current table (CSV)</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Back / close</dd>
+    </dl>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
