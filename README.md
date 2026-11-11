@@ -52,7 +52,13 @@ GitHub Actions runs them on every push.
 
 ## Prior art and what is new
 
-Conformal risk control and Learn-then-Test are established statistics. Selective classification with guarantees exists in ML research, and some AI-SOC vendors expose confidence scores or "auto-close" rules. I could not find a managed-security or AI-SOC product that certifies the auto-close threshold per customer with a finite-sample guarantee, recalibrates it daily, and keeps an auditable policy record. Daylight's public pages describe expert involvement "when judgment is needed" but not how that line is drawn. One public Gartner Peer Insights review (Jul 2026) says Daylight's "AI capabilities are clearly not there yet to do everything needed". A certified line is a direct answer to that worry.
+Learn-then-Test and conformal risk control are established statistics. The closest work I found is a 2026 preprint, *Dual-Threshold Conformal Deferral for Trustworthy Security Alert Triage* (Şahin & Mert; MDPI Electronics, Sep 2026). It calibrates auto-close and auto-escalate thresholds with marginal, class-conditional conformal control, pooled across datasets. This demo differs in four ways:
+1. Each customer gets its own high-probability guarantee (Learn-then-Test with exact binomial tests), not one pooled marginal guarantee.
+2. Thresholds recalibrate daily on a trailing window.
+3. Every customer is tested for breaches on later days with an exact test, against an uncorrected rule and a fleet-wide rule, on real multi-organisation SOC labels (GUIDE).
+4. Each applied threshold is kept as an auditable policy.
+
+AI-SOC vendors (for example Torq, Intezer) auto-close alerts on confidence or verdict. I found none that publishes a certified per-customer bound. Daylight's pages say experts step in "when judgment is needed" and describe Aura findings carrying "a disposition, a confidence and a weight". They do not say how the expert line is drawn. One public Gartner Peer Insights review (Jul 2026) says Daylight's "AI capabilities are clearly not there yet to do everything needed". A certified line answers that worry with a number.
 
 ## Limitations
 
